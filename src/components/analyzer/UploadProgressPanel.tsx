@@ -23,7 +23,7 @@ export function UploadProgressPanel({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.97 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="mt-6 overflow-hidden rounded-2xl border border-indigo-100 bg-linear-to-br from-indigo-50/80 via-white/90 to-violet-50/80 p-5 shadow-[0_8px_32px_rgba(99,102,241,0.14)] backdrop-blur-sm"
+      className="mt-6 overflow-hidden rounded-2xl border border-indigo-100 bg-linear-to-br from-indigo-50/80 via-white/90 to-violet-50/80 p-5 shadow-[0_8px_32px_rgba(99,102,241,0.14)]"
     >
       {/* ── Header: animated icon · status text · percentage badge ── */}
       <div className="mb-4 flex items-center gap-3">

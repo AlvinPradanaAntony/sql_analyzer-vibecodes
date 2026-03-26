@@ -103,7 +103,7 @@ export default function SqlDumpAnalyzerApp() {
 
         <div className="mb-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div>
-            <Card className="h-full overflow-hidden rounded-[32px] md:rounded-[40px] border-white/50 bg-white/80 ring-0 shadow-[0_25px_80px_rgba(59,130,246,0.14)] backdrop-blur-sm px-4 py-6 sm:p-6">
+            <Card className="h-full overflow-hidden rounded-[32px] md:rounded-[40px] border-white/50 bg-white ring-0 shadow-[0_25px_80px_rgba(59,130,246,0.14)] px-4 py-6 sm:p-6">
               <CardHeader className="p-0">
                 <div className="flex items-start gap-3">
                   <motion.div whileHover={{ rotate: 6, scale: 1.06 }} className="shrink-0 rounded-[14px] bg-linear-to-br from-sky-500 to-violet-500 p-3 md:p-4 text-white shadow-xl">
@@ -251,7 +251,7 @@ export default function SqlDumpAnalyzerApp() {
                     sublabel={sqlState.parsedAnalysis.tablesWithSampleData === sqlState.parsedAnalysis.totalTables ? "Semua tabel memiliki sampel data" : "Beberapa tabel kosong (tanpa INSERT)"}
                   />
                 </div>
-                <Card className="rounded-[32px] md:rounded-[40px] border-white/50 bg-white/80 shadow-[0_25px_80px_rgba(59,130,246,0.14)] backdrop-blur-sm ring-0 px-4 py-6 sm:p-6">
+                <Card className="rounded-[32px] md:rounded-[40px] border-white/50 bg-white shadow-[0_25px_80px_rgba(59,130,246,0.14)] ring-0 px-4 py-6 sm:p-6">
                   <CardHeader className="p-0">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                       <div>
