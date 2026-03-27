@@ -16,6 +16,11 @@
 
 ---
 
+## 🔮 Rencana Fitur Berikutnya
+- **Integrasi dengan AI Model untuk Menganalisa SQL**: Menambahkan kecerdasan model AI guna memberi ringkasan struktur, insight performa, dan rekomendasi optimasi langsung dari dump SQL.
+
+---
+
 ## 🛠️ Tech Stack
 - **Framework**: React 19 + TypeScript
 - **Bundler**: Vite 6 (*Include Native Environment Tree-Shaking*)
