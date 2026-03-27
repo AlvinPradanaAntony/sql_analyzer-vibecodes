@@ -23,6 +23,7 @@ import { Progress } from "./components/ui/progress";
 
 export default function SqlDumpAnalyzerApp() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const editorRef = useRef<any>(null);
 
   // 1. Custom hook for handling upload phase & progress
   const {
@@ -35,6 +36,8 @@ export default function SqlDumpAnalyzerApp() {
     clearFileError,
   } = useUploadPhase((text, name) => {
     sqlActions.handleUploadComplete(text, name);
+    // [Direct Override] Bypass state lambat React, tembak teks upload masuk layar editor secepat kilat
+    editorRef.current?.setValue(text);
   });
 
   // 2. Custom hook for handling SQL parsing state and actions
@@ -122,7 +125,7 @@ export default function SqlDumpAnalyzerApp() {
                   <Button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="rounded-full bg-linear-to-r from-sky-500 to-violet-500 text-white shadow-lg shadow-indigo-500/20 transition-all hover:from-sky-600 hover:to-violet-600 hover:shadow-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-90 cursor-pointer px-4 py-2 border-none h-9"
+                    className="rounded-full bg-linear-to-r from-sky-500 to-violet-500 text-white shadow-lg shadow-indigo-500/20 transition-all hover:from-sky-600 hover:to-violet-600 hover:shadow-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-90 px-4 py-2 border-none h-10"
                   >
                     {shouldSpin ? <ButtonIcon className="h-5 w-5 animate-spin" /> : isUploading ? <ButtonIcon className="h-5 w-5 animate-pulse" /> : <ButtonIcon className="h-5 w-5" />}
                     {isUploading ? uploadStatusText || "Mengupload file..." : "Upload File SQL"}
@@ -132,9 +135,11 @@ export default function SqlDumpAnalyzerApp() {
                     onClick={() => {
                       sqlActions.reset();
                       clearFileError();
+                      // [Direct Override] Tembak teks abu-abu ke layar editor secara kasar
+                      editorRef.current?.setValue(DEFAULT_SQL_PLACEHOLDER);
                     }}
                     disabled={isUploading || (!sqlState.sqlText && !sqlState.fileName && !uploadFileError)}
-                    className="rounded-full border-white/60 bg-white shadow-sm px-8 hover:bg-slate-50 h-9 cursor-pointer"
+                    className="rounded-full border-white/60 bg-white shadow-sm px-8 hover:bg-slate-50 h-10"
                   >
                     Reset
                   </Button>
@@ -147,13 +152,20 @@ export default function SqlDumpAnalyzerApp() {
                   <div className="mb-3 flex items-center justify-between">
                     <label className="text-sm font-semibold text-slate-700">Atau tempel isi SQL langsung</label>
                   </div>
-                  <div className="overflow-hidden rounded-3xl border-2 border-slate-200 bg-white/80 transition-shadow focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10">
+                  <div className="relative overflow-hidden rounded-3xl border-2 border-slate-200 bg-white transition-shadow focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10">
+                    {sqlState.isAnalyzing && sqlState.sqlText.length > 20000 && (
+                      <div className="absolute z-10 inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm text-slate-500">
+                         <div className="mb-3 h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+                         <span className="text-sm font-semibold">Memuat data editor raksasa...</span>
+                      </div>
+                    )}
                     <Editor
                       height="240px"
                       width="100%"
                       language="sql"
                       theme="light"
-                      value={sqlState.sqlText}
+                      defaultValue={DEFAULT_SQL_PLACEHOLDER}
+                      onMount={(editor) => { editorRef.current = editor; }}
                       onChange={(val) => {
                         sqlActions.setSqlText(val || "");
                         if (uploadFileError) clearFileError();
@@ -177,9 +189,6 @@ export default function SqlDumpAnalyzerApp() {
                       }}
                       loading={<div className="flex w-full h-full items-center justify-center bg-slate-50 text-slate-400">Memuat editor...</div>}
                       beforeMount={(monaco) => {
-                        if (!sqlState.sqlText) {
-                          sqlActions.setSqlText(DEFAULT_SQL_PLACEHOLDER);
-                        }
                         monaco.editor.defineTheme("custom-light", {
                           base: "vs",
                           inherit: true,
@@ -194,7 +203,15 @@ export default function SqlDumpAnalyzerApp() {
                   </div>
                   {(!sqlState.sqlText || sqlState.sqlText === DEFAULT_SQL_PLACEHOLDER) && <p className="mt-3 text-xs text-slate-500">Mendukung format dump dari MySQL, MariaDB, dll.</p>}
                 </div>
-                {isUploading && <UploadProgressPanel uploadProgress={uploadProgress} uploadStatusText={uploadStatusText} uploadPhase={uploadPhase} PhaseIcon={ButtonIcon} />}
+                {/* Tahan Progress Panel saat file raksasa diproses */}
+                {(isUploading || (sqlState.isAnalyzing && sqlState.sqlText.length > 20000)) && (
+                  <UploadProgressPanel 
+                     uploadProgress={isUploading ? uploadProgress : 100} 
+                     uploadStatusText={isUploading ? uploadStatusText : "Memori menyusun data raksasa..."} 
+                     uploadPhase={isUploading ? uploadPhase : "finishing"} 
+                     PhaseIcon={ButtonIcon} 
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -231,8 +248,12 @@ export default function SqlDumpAnalyzerApp() {
         </div>
 
         <div>
-          {isUploading ? (
-            <EmptyState isUploading={true} uploadStatusText={uploadStatusText} uploadPhase={uploadPhase} />
+          {isUploading || (sqlState.isAnalyzing && sqlState.sqlText.length > 20000) ? (
+            <EmptyState 
+              isUploading={true} 
+              uploadStatusText={isUploading ? uploadStatusText : "Menganalisis & Render Arsitektur Tabel..."} 
+              uploadPhase={isUploading ? uploadPhase : "building"} 
+            />
           ) : sqlState.parsedError ? (
             <ParseErrorState message={sqlState.parsedError} />
           ) : sqlState.parsedAnalysis ? (
@@ -283,12 +304,12 @@ export default function SqlDumpAnalyzerApp() {
                         <CardTitle className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight">View Tabel</CardTitle>
                         <CardDescription className="mt-1 text-xs sm:text-sm leading-relaxed text-slate-600">Cari nama tabel atau kolom, lalu buka panel tabel yang ingin dilihat. Semua row yang berhasil diparse tersedia lewat pagination.</CardDescription>
                       </div>
-                      <div className="flex flex-col gap-2 sm:flex-row">
+                      <div className="flex flex-col gap-3 sm:flex-row">
                         <div className="relative flex-1">
                           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                          <Input value={sqlState.search} onChange={(e) => sqlActions.setSearch(e.target.value)} placeholder="Cari tabel atau kolom..." className="w-full rounded-2xl border-white/60 bg-white/80 pl-9 shadow-sm transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100" />
+                          <Input value={sqlState.search} onChange={(e) => sqlActions.setSearch(e.target.value)} placeholder="Cari tabel atau kolom..." className="w-full py-5 rounded-full border-white/60 bg-white pl-9 shadow-sm transition focus-visible:border-indigo-500 focus-visible:ring-4 focus-visible:ring-indigo-500/10" />
                         </div>
-                        <Button variant="outline" className="shrink-0 gap-2 rounded-2xl border-white/60 bg-white/80 shadow-sm transition hover:-translate-y-0.5 hover:bg-white" onClick={sqlState.allExpanded ? sqlActions.handleCollapseAll : sqlActions.handleExpandAll}>
+                        <Button className="shrink-0 gap-2 rounded-full py-5 shadow-sm transition hover:-translate-y-0.5" onClick={sqlState.allExpanded ? sqlActions.handleCollapseAll : sqlActions.handleExpandAll}>
                           {sqlState.allExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           {sqlState.allExpanded ? "Tutup Semua" : "Buka Semua"}
                         </Button>

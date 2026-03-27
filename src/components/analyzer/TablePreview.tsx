@@ -85,12 +85,12 @@ export function TablePreview({
   }
 
   return (
-    <motion.div layout initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
+    <motion.div layout="position" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
       <Card className="overflow-hidden rounded-[20px] sm:rounded-[28px] border border-white/40 bg-white shadow-[0_14px_38px_rgba(14,116,144,0.10)] transition-shadow duration-200 hover:shadow-[0_18px_44px_rgba(99,102,241,0.14)] ring-0 p-0 gap-0">
         <button
           type="button"
           onClick={onToggle}
-          className="group flex w-full items-center justify-between gap-3 sm:gap-4 bg-linear-to-r from-white/80 via-cyan-50/55 to-violet-50/55 px-4 sm:px-6 py-4 sm:py-5 text-left transition-colors duration-200 hover:from-sky-50/80 hover:via-cyan-50/60 hover:to-violet-50/70 cursor-pointer"
+          className="group flex w-full items-center justify-between gap-3 sm:gap-4 bg-linear-to-r from-white/80 via-cyan-50/55 to-violet-50/55 px-4 sm:px-6 py-4 sm:py-5 text-left transition-colors duration-200 hover:from-sky-50/80 hover:via-cyan-50/60 hover:to-violet-50/70"
         >
           <div className="flex items-center gap-3 min-w-0">
             <div className="shrink-0 rounded-[12px] sm:rounded-2xl bg-linear-to-br from-sky-500 to-violet-500 p-2 text-white shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
