@@ -85,7 +85,7 @@ export function TablePreview({
   }
 
   return (
-    <motion.div layout="position" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
+    <motion.div id={`table-preview-${table.name}`} layout="position" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
       <Card className="overflow-hidden rounded-[20px] sm:rounded-[28px] border border-white/40 bg-white shadow-[0_14px_38px_rgba(14,116,144,0.10)] transition-shadow duration-200 hover:shadow-[0_18px_44px_rgba(99,102,241,0.14)] ring-0 p-0 gap-0">
         <button
           type="button"

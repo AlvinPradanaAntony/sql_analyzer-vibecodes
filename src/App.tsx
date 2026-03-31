@@ -291,7 +291,25 @@ export default function SqlDumpAnalyzerApp() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <SummaryTable tables={sqlState.parsedAnalysis.tables} />
+                    <SummaryTable
+                      tables={sqlState.parsedAnalysis.tables}
+                      onTableClick={(tableName) => {
+                        // Expand the table
+                        sqlActions.expandTable(tableName);
+                        // Clear search so it doesn't stay hidden if we search for a different table
+                        if (sqlState.search) sqlActions.setSearch("");
+                        
+                        // Small delay to let React render the DOM changes (uncollapse/expand)
+                        setTimeout(() => {
+                          const el = document.getElementById(`table-preview-${tableName}`);
+                          if (el) {
+                            // Scroll to it with a bit of offset to account for any sticky headers if present
+                            const y = el.getBoundingClientRect().top + window.scrollY - 80;
+                            window.scrollTo({ top: y, behavior: "smooth" });
+                          }
+                        }, 100);
+                      }}
+                    />
                   </CardContent>
                 </Card>
               </section>

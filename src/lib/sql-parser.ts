@@ -68,7 +68,7 @@ export function parseSqlLiteral(token: string | null | undefined): unknown {
   ) {
     const inner = trimmed.slice(1, -1);
     return inner
-      .replace(/\\'/g, "'")
+      .replace(/\\'|''/g, "'") // MySQL \' and PostgreSQL '' both become a single quote
       .replace(/\\"/g, '"')
       .replace(/\\r/g, "\r")
       .replace(/\\n/g, "\n")
@@ -82,25 +82,37 @@ export function parseSqlLiteral(token: string | null | undefined): unknown {
 export function splitRowValues(rowText: string): unknown[] {
   const values: string[] = [];
   let current = "";
-  let inQuote = false;
-  let quoteChar = "";
+  let inSingleQuote = false;
 
   for (let i = 0; i < rowText.length; i += 1) {
     const ch = rowText[i];
+    const next = rowText[i + 1];
     const prev = rowText[i - 1];
 
-    if ((ch === "'" || ch === '"') && prev !== "\\") {
-      if (!inQuote) {
-        inQuote = true;
-        quoteChar = ch;
-      } else if (quoteChar === ch) {
-        inQuote = false;
-      }
+    if (ch === "'" && !inSingleQuote) {
+      inSingleQuote = true;
       current += ch;
       continue;
     }
 
-    if (ch === "," && !inQuote) {
+    if (ch === "'" && inSingleQuote) {
+      // PostgreSQL escape: '' means a literal single quote inside a string
+      if (next === "'") {
+        current += "''";
+        i += 1; // skip next quote
+        continue;
+      }
+      // MySQL/standard escape: \' also handled via prev check
+      if (prev === "\\") {
+        current += ch;
+        continue;
+      }
+      inSingleQuote = false;
+      current += ch;
+      continue;
+    }
+
+    if (ch === "," && !inSingleQuote) {
       values.push(current.trim());
       current = "";
       continue;
@@ -113,13 +125,38 @@ export function splitRowValues(rowText: string): unknown[] {
   return values.map(parseSqlLiteral);
 }
 
+/** Strip surrounding quotes from a table name but KEEP the schema prefix for display.
+ * e.g. `"public"."audit_logs"` → `public.audit_logs`, `\`users\`` → `users` */
+export function displayTableName(raw: string): string {
+  return raw
+    .replace(/["\x60]/g, "")   // remove all backticks and double-quotes
+    .replace(/\.(?=\S)/g, "."); // normalise any dot separators (already clean)
+}
+
+/** Strip schema prefix AND surrounding quotes — used only for tableMap lookup keys. */
+export function normalizeTableName(raw: string): string {
+  // Handle schema-qualified names like "schema"."table" or schema.table
+  const parts = raw.split(/\.(?=["\x60]|[^"\x60])/g);
+  const lastPart = parts[parts.length - 1];
+  return lastPart.replace(/^["\x60]|["\x60]$/g, "");
+}
+
 export function extractCreateTables(sqlText: string) {
-  const tables: Array<{ tableName: string; columns: string[]; sampleRows: ParsedRow[] }> = [];
-  const regex = /CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`?([^`\s(]+)`?\s*\(([^]*?)\)\s*(?:ENGINE|TYPE|;)/gi;
+  const tables: Array<{
+    tableName: string;   // bare table name — used as lookup key
+    displayName: string; // schema-qualified display name (e.g. "public.audit_logs")
+    columns: string[];
+    sampleRows: ParsedRow[];
+  }> = [];
+  // Supports both MySQL (ENGINE/TYPE/;) and PostgreSQL ()\n; endings
+  const regex =
+    /CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+((?:["\x60]?[^"\x60\s(]+["\x60]?\.)?["\x60]?[^"\x60\s(]+["\x60]?)\s*\(([^]*?)\)\s*(?:ENGINE|TYPE|;|\r?\n\s*;)/gi;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(sqlText)) !== null) {
-    const tableName = match[1];
+    const rawTableName = match[1];
+    const tableName = normalizeTableName(rawTableName);   // bare name for lookup
+    const dName = displayTableName(rawTableName);         // schema-qualified for display
     const body = match[2];
     const columns: string[] = [];
     const lines = body.split(/\r?\n/);
@@ -127,12 +164,13 @@ export function extractCreateTables(sqlText: string) {
     for (const rawLine of lines) {
       const line = rawLine.trim().replace(/,$/, "");
       if (!line) continue;
-      if (/^(PRIMARY|UNIQUE|KEY|INDEX|CONSTRAINT|FULLTEXT|SPATIAL)/i.test(line)) continue;
-      const columnMatch = line.match(/^`([^`]+)`\s+/);
+      if (/^(PRIMARY|UNIQUE|KEY|INDEX|CONSTRAINT|FULLTEXT|SPATIAL|CHECK)/i.test(line)) continue;
+      // Support both MySQL backtick (`col`) and PostgreSQL double-quote ("col")
+      const columnMatch = line.match(/^["\x60]([^"\x60]+)["\x60]\s+/);
       if (columnMatch) columns.push(columnMatch[1]);
     }
 
-    tables.push({ tableName, columns, sampleRows: [] });
+    tables.push({ tableName, displayName: dName, columns, sampleRows: [] });
   }
 
   return tables;
@@ -142,25 +180,38 @@ export function splitRows(valuesBlock: string): string[] {
   const rows: string[] = [];
   let current = "";
   let depth = 0;
-  let inQuote = false;
-  let quoteChar = "";
+  let inSingleQuote = false;
 
   for (let i = 0; i < valuesBlock.length; i += 1) {
     const ch = valuesBlock[i];
+    const next = valuesBlock[i + 1];
     const prev = valuesBlock[i - 1];
 
-    if ((ch === "'" || ch === '"') && prev !== "\\") {
-      if (!inQuote) {
-        inQuote = true;
-        quoteChar = ch;
-      } else if (quoteChar === ch) {
-        inQuote = false;
-      }
+    // Track single-quoted strings (both MySQL \' and PostgreSQL '' escapes)
+    if (ch === "'" && !inSingleQuote) {
+      inSingleQuote = true;
       current += ch;
       continue;
     }
 
-    if (!inQuote && ch === "(") {
+    if (ch === "'" && inSingleQuote) {
+      if (next === "'") {
+        // PostgreSQL '' escape sequence — keep both and skip next
+        current += "''";
+        i += 1;
+        continue;
+      }
+      if (prev === "\\") {
+        // MySQL \' escape — keep it
+        current += ch;
+        continue;
+      }
+      inSingleQuote = false;
+      current += ch;
+      continue;
+    }
+
+    if (!inSingleQuote && ch === "(") {
       depth += 1;
       if (depth === 1) {
         current = "";
@@ -168,7 +219,7 @@ export function splitRows(valuesBlock: string): string[] {
       }
     }
 
-    if (!inQuote && ch === ")") {
+    if (!inSingleQuote && ch === ")") {
       depth -= 1;
       if (depth === 0) {
         rows.push(current);
@@ -187,13 +238,17 @@ export function extractInsertRows(
   sqlText: string,
   tableMap: Map<string, { tableName: string; columns: string[]; sampleRows: ParsedRow[] }>,
 ) {
-  const insertRegex = /INSERT\s+INTO\s+`?([^`\s(]+)`?\s*(?:\(([^;]*?)\))?\s*VALUES\s*([^;]+);/gi;
+  // Supports MySQL (`table`) and PostgreSQL ("schema"."table") identifier quoting
+  const insertRegex =
+    /INSERT\s+INTO\s+((?:["\x60]?[^"\x60\s(]+["\x60]?\.)?["\x60]?[^"\x60\s(]+["\x60]?)\s*(?:\(([^)]*?)\))?\s*VALUES\s*([^;]+);/gi;
   let match: RegExpExecArray | null;
 
   while ((match = insertRegex.exec(sqlText)) !== null) {
-    const tableName = match[1];
+    const rawTableName = match[1];
+    const tableName = normalizeTableName(rawTableName);
+    // Extract column names — support both backtick (`col`) and double-quote ("col")
     const explicitColumns = match[2]
-      ? Array.from(match[2].matchAll(/`([^`]+)`/g)).map((m) => m[1])
+      ? Array.from(match[2].matchAll(/["\x60]([^"\x60]+)["\x60]/g)).map((m) => m[1])
       : null;
     const valuesBlock = match[3];
     const table = tableMap.get(tableName);
@@ -235,7 +290,7 @@ export function analyzeSql(sqlText: string, fileName = ""): AnalysisResult | nul
 
   const resultTables: ParsedTable[] = tables.map((table, index) => ({
     no: index + 1,
-    name: table.tableName,
+    name: table.displayName, // show schema-qualified name (e.g. public.audit_logs)
     columns: table.columns,
     columnCount: table.columns.length,
     hasSampleData: table.sampleRows.length > 0,

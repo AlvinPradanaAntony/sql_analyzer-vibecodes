@@ -88,8 +88,17 @@ export function useSqlAnalyzer() {
     setExpanded((prev) => {
       const isCurrentlyExpanded = prev[tableName];
       return {
-        [tableName]: !isCurrentlyExpanded,
+        // If it was already expanded, we just close it (set to nothing or false).
+        // If it was closed, we open JUST this one (accordion behavior).
+        ...(isCurrentlyExpanded ? {} : { [tableName]: true }),
       };
+    });
+  };
+
+  const expandTable = (tableName: string) => {
+    // Accordion behavior: only one table is expanded
+    setExpanded({
+      [tableName]: true,
     });
   };
 
@@ -140,6 +149,7 @@ export function useSqlAnalyzer() {
       setSearch,
       handleUploadComplete,
       toggleExpand,
+      expandTable,
       handleExpandAll,
       handleCollapseAll,
       reset,

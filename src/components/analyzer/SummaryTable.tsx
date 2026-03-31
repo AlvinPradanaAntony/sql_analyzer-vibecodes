@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import type { ParsedTable } from "../../types/sql";
 
-export function SummaryTable({ tables }: { tables: ParsedTable[] }) {
+export function SummaryTable({ tables, onTableClick }: { tables: ParsedTable[]; onTableClick?: (tableName: string) => void }) {
   return (
     <div className="overflow-x-auto overflow-y-hidden rounded-[20px] sm:rounded-[28px] border border-white/40 bg-white shadow-[0_20px_60px_rgba(59,130,246,0.15)]">
       <table className="min-w-full text-xs sm:text-sm">
@@ -24,7 +24,12 @@ export function SummaryTable({ tables }: { tables: ParsedTable[] }) {
               className="border-t border-slate-200/70 bg-white/75 transition-colors hover:bg-sky-50/70"
             >
               <td className="px-3 py-2 font-medium text-slate-600 sm:px-4 sm:py-3">{table.no}</td>
-              <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-900 sm:px-4 sm:py-3">{table.name}</td>
+              <td 
+                className="whitespace-nowrap px-3 py-2 font-semibold text-sky-600 sm:px-4 sm:py-3 cursor-pointer hover:text-sky-800 hover:underline transition-colors"
+                onClick={() => onTableClick?.(table.name)}
+              >
+                {table.name}
+              </td>
               <td className="px-3 py-2 text-slate-600 sm:px-4 sm:py-3">{table.columnCount}</td>
               <td className="px-3 py-2 text-slate-600 sm:px-4 sm:py-3">{table.rowCount}</td>
               <td className="px-3 py-2 sm:px-4 sm:py-3">

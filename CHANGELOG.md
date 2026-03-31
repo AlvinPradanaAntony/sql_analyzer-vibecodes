@@ -2,7 +2,18 @@
 
 Dokumen ini merangkum seluruh perbaikan arsitektur, pemolesan UI/UX, dan optimasi performa *React* yang telah dilakukan selama proses pengembangan aplikasi.
 
-## 🚀 Fitur Baru & Peningkatan Antarmuka (UI/UX)
+## 🚀 Versi 0.1.0 (Terbaru)
+
+### ✨ Fitur Baru & Peningkatan (Fitur & UI)
+- **Dukungan PostgreSQL Parser**: Memperluas fleksibilitas Regex pada `lib/sql-parser.ts` agar tidak hanya mendukung MySQL-style (backtick & `ENGINE=...`) tetapi juga dapat membaca dump file PostgreSQL secara inklusif (dengan _double-quote identifier_ `"schema"."table"`, escape single-quote ganda `''`, dan _closing statement_ khas psql).
+- **Interaksi Ringkasan Tabel (Click & Scroll)**: Nama tabel pada modul *Ringkasan Tabel* kini dapat diklik untuk melakukan *auto-scroll* mulus dan membuka *Accordion* tabel secara otomatis (Smooth UX).
+- **Sistem Tampilan Schema Tabel**: Mengembangkan fungsi `displayTableName` untuk mempertontonkan penamaan tabel utuh beserta prefix schemanya (contoh: `public.audit_logs`) agar pengguna lebih sadar akan konteks hierarki, sementara sistem internal _mapping_ tetap menggunakan _bare table name_ yang higienis.
+
+### ⚡ Optimasi Performa Ekstrim (React & CSS)
+- **Akelerasi GPU pada Accordion Tabel**: Mencopot mesin animasi _height: "auto"_ bawaan Framer Motion yang mahal, dan menggantikannya dengan trik CSS mutakhir `grid-template-rows: 0fr -> 1fr`. Perubahan drastis ini menghentikan pemaksaan _Layout Reflow_ Browser di setiap frame animasi, menyembuhkan isu Low FPS (Patah-patah) pada halaman yang memuat puluhan tabel sekaligus.
+- **Pembersihan Observer Layout**: Menyingkirkan properti *layout* dan *motion.tr* berlebihan milik Framer Motion pada daftar kolom tabel yang boros memori.
+
+### 🚀 Fitur Baru & Peningkatan Antarmuka (UI/UX)
 - **Tampilan Accordion pada Tabel**: Mengubah sifat *expand/collapse* daftar tabel menjadi *Accordion Mutlak*. Membuka satu tabel akan otomatis melipat tabel lainnya untuk menjaga kerapian antarmuka, namun tetap mempertahankan fungsi tombol "Buka Semua / Tutup Semua".
 - **Lahirnya UI Panel "Upload Progress" Terpisah**: Memindahkan logika *progress bar* yang panjang ke komponen mandiri `<UploadProgressPanel />` demi mematuhi rasio *Separation of Concerns (SoC)*.
 - **Transisi Animasi Halus untuk File Mega (GB/MB)**: Menerapkan penahan layar *(Holding State)* untuk mencegah antarmuka lompat menjadi kosong (*blank*) saat Browser sedang menyusun arsitektur Regex parser untuk file SQL raksasa. Menambahkan *overlay spinner* pada Monaco Editor.
