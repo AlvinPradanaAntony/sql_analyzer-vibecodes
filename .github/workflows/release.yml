@@ -1,0 +1,48 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger workflow pada dorongan tag berawalan 'v' (contoh: v0.1.0)
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Dibutuhkan untuk membaca seluruh file dan tag historis
+          
+      - name: Extract Release Notes from CHANGELOG.md
+        id: extract_notes
+        # Skrip ini memotong baris CHANGELOG dari versi tag saat ini hingga menemukan versi tag yang lebih lama (batas ##)
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Mencari catatan rilis untuk versi: $VERSION"
+          
+          # Ekstrak konten yang berada di antara teks '## 🚀 Versi [VERSION]' dan judul (##) berikutnya
+          awk "/^## 🚀 Versi ${VERSION}/{flag=1; next} /^## /{if(flag) {flag=0; exit}} flag" CHANGELOG.md > release_notes.txt
+          
+          if [ -s release_notes.txt ]; then
+            echo "notes_found=true" >> $GITHUB_OUTPUT
+            echo "Catatan rilis berhasil diekstrak."
+          else
+            echo "notes_found=false" >> $GITHUB_OUTPUT
+            echo "Catatan rilis kosong atau gagal diekstrak!"
+            echo "Automated Web Release by GitHub Actions" > release_notes.txt
+          fi
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
